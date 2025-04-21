@@ -8,6 +8,7 @@ import re
 from pathlib import Path
 from typing import List, Optional
 
+import aiohttp
 import fire
 from crawl4ai import (
     AsyncWebCrawler,
@@ -70,6 +71,21 @@ async def process_page(
         write_markdown(output_dir / filename, md_text)
         print(f"Saved → {output_dir/filename}")
 
+async def parse_llms_txt(url: str) -> List[str]:
+    """Fetch and parse an llms.txt file, returning a list of URLs."""
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as response:
+            if response.status != 200:
+                print(f"Failed to fetch llms.txt: {response.status}")
+                return []
+
+            content = await response.text()
+            url_pattern = re.compile(r'\]\((https?://[^)]+)\)')
+            urls = url_pattern.findall(content)
+
+            print(f"Found {len(urls)} URLs in llms.txt")
+            return urls
+
 async def crawl_and_export(
     base_url: str,
     instruction: str,
@@ -118,8 +134,25 @@ async def crawl_and_export(
         verbose=True,
     )
 
+    start_urls = []
+    if base_url.lower().endswith('llms.txt'):
+        print(f"Processing llms.txt from {base_url}")
+        start_urls = await parse_llms_txt(base_url)
+        if not start_urls:
+            print(f"No valid URLs found in {base_url}")
+            return
+    else:
+        start_urls = [base_url]
+
+    results = []
     async with AsyncWebCrawler(config=BrowserConfig(headless=True)) as crawler:
-        results: List = await crawler.arun(base_url, config=run_cfg)
+        for url in start_urls:
+            print(f"Crawling {url} (depth={depth})...")
+            results_i = await crawler.arun(url, config=run_cfg)
+            results.extend(results_i)
+            print(f"Found {len(results)} pages from {url}")
+
+        # results: List = await crawler.arun(base_url, config=run_cfg)
 
     # Create semaphore for LLM processing
     semaphore = asyncio.Semaphore(concurrency)

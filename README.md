@@ -2,7 +2,7 @@
 
 **Why?**
 
-I needed a **one line tool to crawl a website** (or a single webpage) into a formatted markdown, without headers, navigation etc. **to add to Claude or ChatGPT project documents**.
+I needed a **one line tool to crawl a website** (or the links in a *llms.txt*) into formatted markdown files (without headers, navigation etc.) **to add to Claude or ChatGPT project documents**.
 
 I haven't found an easy solution, there is some web based tool with a few free credits, but if you are already paying for some LLM with an api, why pay also someone else?
 
@@ -36,6 +36,7 @@ uv run main.py \
 
 - To use another LLM provider, just change `--provider` to eg. `openai/gpt-4o` (also set --llm-api-key)
 - Provide a clear goal to `--instruction`. This will guide the LLM to filter out irrelevant pages.
+- Recommended depth: `1` or `2` for normal website, `0` or `1` for llms.txt
 
 > [!CAUTION]
 > If you need to do more complex stuff use Crawl4AI directly and build it yourself: https://docs.crawl4ai.com/
