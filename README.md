@@ -8,15 +8,16 @@ I haven't found an easy solution, there is some web based tool with a few free c
 
 ## What it does
 
-This is a thin wrapper around Crawl4AI that:
+The script uses Crawl4AI:
 
-1. crawls the given url and goes deeper by the provided `--depth` (default = 1). 0 means single webpage
-2. For each url, Crawl4AI produces a markdown, then the script asks the LLM to only extract relevant content, according to `--instruction`. Unlike Crawl4AI, it does it afterwards.
+1. For each url in the crawling, Crawl4AI produces a markdown
+2. Then the script asks the LLM to extract only the content relevant to `--instruction`. Unlike Crawl4AI, it does it afterwards.
 3. Keeps only files longer than `--md_min_chars` (default = 1000)
 
 ## Installation
 
 **Recommended, with uv:** Nothing to do
+
 **Alternative, pip:** install `crawl4ai` and `fire`
 
 ## How to use
