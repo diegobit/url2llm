@@ -1,0 +1,10 @@
+[project]
+name = "website2llm"
+version = "0.1.0"
+description = "Thin wrapper around Crawl4AI to easily crawl a website and produce LLM ready markdowns"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "crawl4ai>=0.5.0.post8",
+    "fire>=0.7.0",
+]
