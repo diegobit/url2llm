@@ -1,15 +1,18 @@
 """
-Crawl a website and export topic‑focused markdown files (one per page) using Crawl4AI.
+Crawl a website and export topic-focused markdown files, then merge them 
+with an LLM-generated filename based on content.
 """
 
 import asyncio
 import functools
+import os
 import re
 from pathlib import Path
 from typing import List, Optional
 
 import aiohttp
 import fire
+import litellm
 from crawl4ai import (
     AsyncWebCrawler,
     BrowserConfig,
@@ -21,146 +24,216 @@ from crawl4ai.content_filter_strategy import LLMContentFilter
 from crawl4ai.deep_crawling import BFSDeepCrawlStrategy
 from crawl4ai.markdown_generation_strategy import DefaultMarkdownGenerator
 
+_SLUG_PATTERN = re.compile(r"[^\w-]+", re.UNICODE)
 
-_slug_rx = re.compile(r"[^\w-]+", re.UNICODE)
+def slugify(text: str) -> str:
+    """Convert text to URL-safe slug, limited to 120 chars."""
+    slug = _SLUG_PATTERN.sub("-", text.strip().lower())
+    return slug[:120].strip("-") or "merged"
 
-
-def slugify(url: str) -> str:
-    url = re.sub(r"^https?://", "", url).rstrip("/")
-    slug = _slug_rx.sub("-", url)
-    return slug[:120].strip("-") or "page"
-
-def write_markdown(path: Path, content: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(content, encoding="utf-8")
-
-async def filter_content_async(llm_filter, raw_md):
-    """Run the blocking .filter_content in a thread‑pool executor."""
+async def filter_content(llm_filter, content: str) -> List[str]:
+    """Filter content using LLM"""
     loop = asyncio.get_running_loop()
-    func = functools.partial(llm_filter.filter_content, raw_md)
-    return await loop.run_in_executor(None, func)
+    filter_func = functools.partial(llm_filter.filter_content, content)
+    return await loop.run_in_executor(None, filter_func)
 
 async def process_page(
-    res,
+    result,
     llm_filter,
     output_dir: Path,
     semaphore: asyncio.Semaphore,
     min_chars: int
-) -> None:
+) -> Optional[Path]:
+    """Process a single crawled page and save as markdown if relevant."""
     async with semaphore:
-        # Skip failure or no content
-        if not res.success or not getattr(res, "markdown", None):
-            return
+        # Skip failed or empty results
+        if not result.success or not getattr(result, "markdown", None):
+            return None
 
-        raw_md = (
-            getattr(res.markdown, "raw_markdown", None)
-            or (res.markdown if isinstance(res.markdown, str) else None)
+        # Extract raw markdown content
+        raw_md = getattr(result.markdown, "raw_markdown", None) or (
+            result.markdown if isinstance(result.markdown, str) else None
         )
         if not raw_md:
-            return
+            return None
 
-        # Clean with LLM
-        md_text = await filter_content_async(llm_filter, raw_md)
-        md_text = "\n\n".join(md_text)
+        # Filter content using LLM
+        chunks = await filter_content(llm_filter, raw_md)
+        md = "\n\n".join(chunks).strip()
 
-        # Skip too-short outputs
-        if not md_text or len(md_text.strip()) < min_chars:
-            return
+        # Skip if content is too short
+        if len(md) < min_chars:
+            return None
 
-        filename = f"{slugify(res.url)}.md"
-        write_markdown(output_dir / filename, md_text)
-        print(f"Saved → {output_dir/filename}")
+        # Save to file
+        filename = f"{slugify(result.url)}.md"
+        path = output_dir / filename
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(md, encoding="utf-8")
+        print(f"Saved → {path}")
 
-async def parse_llms_txt(url: str) -> List[str]:
-    """Fetch and parse an llms.txt file, returning a list of URLs."""
+        return path
+
+async def fetch_urls_from_llms_txt(url: str) -> List[str]:
+    """Parse a llms.txt file and extract URLs."""
     async with aiohttp.ClientSession() as session:
-        async with session.get(url) as response:
-            if response.status != 200:
-                print(f"Failed to fetch llms.txt: {response.status}")
+        async with session.get(url) as resp:
+            if resp.status != 200:
+                print(f"Failed to fetch llms.txt: {resp.status}")
                 return []
+            text = await resp.text()
+            # Extract markdown-style URLs
+            return re.findall(r"\]\((https?://[^)]+)\)", text)
 
-            content = await response.text()
-            url_pattern = re.compile(r'\]\((https?://[^)]+)\)')
-            urls = url_pattern.findall(content)
+async def generate_title(filenames: List[str], provider: str, api_key: Optional[str]) -> str:
+    """Generate a descriptive title using the llm."""
+    prompt = f"""Based on these markdown filenames, generate a single, descriptive title for a document that merges all of them.
+The title should be concise (under 50 characters) and capture the main topic or theme.
+Do not include file extensions or special characters in the title.
+Just return the title text with no additional explanation or formatting.
 
-            print(f"Found {len(urls)} URLs in llms.txt")
-            return urls
+Files:
+{os.linesep.join(f"- {filename}" for filename in filenames)}
 
-async def crawl_and_export(
-    base_url: str,
+Title:"""
+
+    try:
+        print(f"Using model: {provider} for title generation")
+
+        response = await litellm.acompletion(
+            model=provider,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.1,
+            api_key=api_key
+        )
+        title = response.choices[0].message.content.strip()
+
+        print(f"Generated title: '{title}'")
+
+        # If empty or too short, use fallback
+        if not title or len(title) < 3:
+            print("Warning: Generated title was too short, using fallback")
+            return "merged-content"
+
+        # Slugify the title and return
+        return slugify(title)
+
+    except Exception as e:
+        print(f"Error generating title: {e}")
+        return "merged-content"
+
+async def crawl_website(
+    url: str,
     instruction: str,
     output_dir: Path,
     depth: int,
     model: str,
     concurrency: int,
     api_key: Optional[str],
-    md_min_chars: int
-) -> None:
-    """Crawl *base_url* and write cleaned, relevant markdown files under *output_dir*."""
-
+    min_chars: int
+) -> List[Path]:
+    """Crawl website and export pages as markdown files."""
+    # Setup LLM filter with instruction
     llm_cfg = LLMConfig(provider=model, api_token=api_key)
-
-    # LLM filter: extract relevant content and skip unrelated pages
     llm_filter = LLMContentFilter(
         llm_config=llm_cfg,
         instruction=f"""
 {instruction}
 
 # Important rules:
-- If the page contains no information relevant to the instruction above, return an empty string (skip page).
-- If the page is relevant to the instruction:
+- IF the page is IRRELEVANT with respect to the main instruction
+    - skip the page and return an empty string.
+- ELSE IF the page is RELEVANT with respect to the main instruction:
     - Omit navigation menus, sidebars, footers, cookie banners, ads.
-    - Keep headings, lists, code blocks, and tables intact.
-    - Ensure each heading (e.g., '#', '##') appears on its own line, followed by a blank line.
-    - Preserve original paragraph breaks and blank lines between sections.
+    - Keep headings, lists, code blocks, tables and formatting intact.
     - Return clean, well-structured markdown only.
 """,
         chunk_token_threshold=8192,
         verbose=True,
     )
 
-    # Use plain Markdown generator (raw conversion) and apply LLM filter manually
-    md_generator = DefaultMarkdownGenerator(
-        options={"ignore_links": True},
-    )
-
-    deep_strategy = BFSDeepCrawlStrategy(max_depth=depth, include_external=False)
-
+    # Configure crawler
+    md_gen = DefaultMarkdownGenerator(options={"ignore_links": True})
+    deep_crawl = BFSDeepCrawlStrategy(max_depth=depth, include_external=False)
     run_cfg = CrawlerRunConfig(
-        deep_crawl_strategy=deep_strategy,
-        markdown_generator=md_generator,
+        deep_crawl_strategy=deep_crawl,
+        markdown_generator=md_gen,
         cache_mode=CacheMode.BYPASS,
         semaphore_count=concurrency,
         verbose=True,
     )
 
-    start_urls = []
-    if base_url.lower().endswith('llms.txt'):
-        print(f"Processing llms.txt from {base_url}")
-        start_urls = await parse_llms_txt(base_url)
-        if not start_urls:
-            print(f"No valid URLs found in {base_url}")
-            return
-    else:
-        start_urls = [base_url]
+    # Determine start URLs
+    start_urls = (await fetch_urls_from_llms_txt(url) 
+                  if url.lower().endswith('llms.txt') 
+                  else [url])
 
     results = []
     async with AsyncWebCrawler(config=BrowserConfig(headless=True)) as crawler:
         for url in start_urls:
             print(f"Crawling {url} (depth={depth})...")
-            results_i = await crawler.arun(url, config=run_cfg)
-            results.extend(results_i)
-            print(f"Found {len(results)} pages from {url}")
+            batch = await crawler.arun(url, config=run_cfg)
+            results.extend(batch)
 
-        # results: List = await crawler.arun(base_url, config=run_cfg)
+    # Process pages concurrently
+    sem = asyncio.Semaphore(concurrency)
+    tasks = [process_page(r, llm_filter, output_dir, sem, min_chars) for r in results]
+    return [p for p in await asyncio.gather(*tasks) if p]
 
-    # Create semaphore for LLM processing
-    semaphore = asyncio.Semaphore(concurrency)
-    tasks = [
-        process_page(res, llm_filter, output_dir, semaphore, md_min_chars)
-        for res in results
-    ]
-    await asyncio.gather(*tasks)
+async def merge_files(input_paths: List[Path], output_file: Path) -> None:
+    """Merge multiple markdown files into one."""
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+
+    with output_file.open('w', encoding='utf-8') as out:
+        for i, path in enumerate(sorted(input_paths), 1):
+            out.write(f"\n{'*'*80}"
+                      f"\n** Section {i}: {path.name} **"
+                      f"\n{'*'*80}"
+                      f"\n\n")
+            out.write(path.read_text(encoding='utf-8'))
+
+            # Add separator between sections
+            if i < len(input_paths):
+                out.write("\n\n")
+
+    print(f"Merged {len(input_paths)} files into {output_file}")
+
+async def main_async(
+    url: str,
+    instruction: str,
+    output_dir: Path,
+    depth: int,
+    provider: str,
+    concurrency: int,
+    api_key: Optional[str],
+    min_chars: int
+) -> None:
+    """Main async function to orchestrate the crawling and merging process."""
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    paths = await crawl_website(
+        url=url,
+        instruction=instruction,
+        output_dir=output_dir,
+        depth=depth,
+        model=provider,
+        concurrency=concurrency,
+        api_key=api_key,
+        min_chars=min_chars
+    )
+
+    if not paths:
+        print("No relevant pages found to merge.")
+        return
+
+    title = await generate_title(
+        [p.name for p in paths], 
+        provider, 
+        api_key
+    )
+
+    merged_file = output_dir / "merged" / f"{title}.md"
+    await merge_files(paths, merged_file)
 
 def cli(
     url: str,
@@ -170,26 +243,21 @@ def cli(
     concurrency: int = 16,
     provider: str = "gemini/gemini-2.5-flash-preview-04-17",
     api_key: Optional[str] = None,
-    md_min_chars: int = 1000
+    min_chars: int = 1000
 ) -> None:
-    """Thin wrapper that adapts Fire flags → `crawl_and_export` coroutine."""
+    """Command-line interface for web crawling and markdown generation."""
+    out_path = Path(output_dir).expanduser()
 
-    out_path = Path(output_dir)
-    out_path.mkdir(parents=True, exist_ok=True)
-
-    asyncio.run(
-        crawl_and_export(
-            base_url=url,
-            instruction=instruction,
-            output_dir=out_path,
-            depth=depth,
-            model=provider,
-            concurrency=concurrency,
-            api_key=api_key,
-            md_min_chars=md_min_chars
-        )
-    )
+    asyncio.run(main_async(
+        url=url,
+        instruction=instruction,
+        output_dir=out_path,
+        depth=depth,
+        provider=provider,
+        concurrency=concurrency,
+        api_key=api_key,
+        min_chars=min_chars
+    ))
 
 if __name__ == "__main__":
     fire.Fire(cli)
-
