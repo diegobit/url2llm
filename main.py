@@ -165,9 +165,9 @@ async def crawl_and_export(
 def cli(
     url: str,
     instruction: str,
-    output_dir: str = "md_out",
-    depth: int = 1,
-    concurrency: int = 8,
+    output_dir: str = "~/Desktop/crawl_out",
+    depth: int = 2,
+    concurrency: int = 16,
     provider: str = "gemini/gemini-2.5-flash-preview-04-17",
     api_key: Optional[str] = None,
     md_min_chars: int = 1000
