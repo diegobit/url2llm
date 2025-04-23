@@ -10,10 +10,10 @@ I haven't found an easy solution, there is some web based tool with a few free c
 
 The script uses Crawl4AI:
 
-1. For each url in the crawling, Crawl4AI produces a markdown
-2. Then the script asks the LLM to extract only the content relevant to `--instruction`. Unlike Crawl4AI, it does it afterwards.
-3. Keeps only files longer than `--md_min_chars` (default = 1000) – save them into `${output-dir}`
-4. Merge all files into one – save them into `${output-dir}/merged/`
+1. For each url in the crawling, the script produces a markdown
+2. Then it asks the LLM to extract only the content relevant to `--instruction`.
+3. Keeps only files longer than `--md_min_chars` (default = 1000) – save them into `${--output-dir}`
+4. Merge all files into one – save them into `${--output-dir}/merged/`
 
 ## Installation
 
@@ -36,9 +36,12 @@ uv run main.py \
    --output-dir ./md_out
 ```
 
-- To use another LLM provider, just change `--provider` to eg. `openai/gpt-4o` (also set --llm-api-key)
-- Provide a clear goal to `--instruction`. This will guide the LLM to filter out irrelevant pages.
-- Recommended depth: `1` or `2` for normal website, `0` or `1` for llms.txt. Default is `2`
+- To use **another LLM provider**, just change `--provider` to eg. `openai/gpt-4o`
+   - always set `--api-key`, it is not always inferred correctly fron env vars)
+- Provide a **clear goal** to `--instruction`. This will guide the LLM to filter out irrelevant pages.
+- Recommended **depth** (default = `2`):
+   - `2` or `1` for normal website
+   - `1` for llms.txt
 
 > [!CAUTION]
 > If you need to do more complex stuff use Crawl4AI directly and build it yourself: https://docs.crawl4ai.com/

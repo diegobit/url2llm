@@ -1,6 +1,5 @@
 """
-Crawl a website and export topic-focused markdown files, then merge them 
-with an LLM-generated filename based on content.
+Crawl a website and export llm ready markdown files
 """
 
 import asyncio
