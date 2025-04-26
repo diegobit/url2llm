@@ -243,6 +243,7 @@ def _crawl_command(
     :param provider: LLM provider/model (e.g. "openai/gpt-4o").
     :param api_key: API key for the provider.
     :param min_chars: Discard filtered chunks shorter than this.
+    :param keep_pages: Also keep individual pages, not only merged file
     """
     path = Path(output_dir).expanduser()
     asyncio.run(
