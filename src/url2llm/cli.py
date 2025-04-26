@@ -24,7 +24,6 @@ async def _filter_content(llm_filter, content: str) -> List[str]:
 async def _process_page(
     result,
     llm_filter,
-    output_dir: Path,
     semaphore: asyncio.Semaphore,
     min_chars: int,
 ) -> Optional[Path]:
@@ -45,7 +44,7 @@ async def _process_page(
             return None
 
         filename = f"{_slugify(result.url)}.md"
-        path = output_dir / filename
+        path = Path("/tmp") / "url2llm_pages" / filename
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(md, encoding="utf-8")
         print(f"Saved → {path}")
@@ -100,7 +99,6 @@ async def _crawl_website(
     *,
     url: str,
     instruction: str,
-    output_dir: Path,
     depth: int,
     provider: str,
     concurrency: int,
@@ -156,14 +154,17 @@ async def _crawl_website(
             results.extend(await crawler.arun(u, config=run_cfg))
 
     sem = asyncio.Semaphore(concurrency)
-    tasks = [_process_page(r, llm_filter, output_dir, sem, min_chars) for r in results]
+    tasks = [_process_page(r, llm_filter, sem, min_chars) for r in results]
     return [p for p in await asyncio.gather(*tasks) if p]
 
 
-async def _merge_files(files: List[Path], merged: Path) -> None:
+async def _merge_files(files: List[Path], output_dir: Path, filename: str, keep_pages: bool) -> None:
     """Concatenate individual markdown files into one."""
-    merged.parent.mkdir(parents=True, exist_ok=True)
-    with merged.open("w", encoding="utf-8") as out:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    merged_path = output_dir / filename
+
+    # Create merged file
+    with merged_path.open("w", encoding="utf-8") as out:
         for i, path in enumerate(sorted(files), 1):
             out.write(
                 f"\n{'*' * 80}\n** Section {i}: {path.name} **\n{'*' * 80}\n\n"
@@ -171,7 +172,20 @@ async def _merge_files(files: List[Path], merged: Path) -> None:
             out.write(path.read_text(encoding="utf-8"))
             if i < len(files):
                 out.write("\n\n")
-    print(f"Merged {len(files)} files → {merged}")
+
+    # Move page files or delete
+    if keep_pages:
+        pages_out_dir = output_dir / "pages/"
+        pages_out_dir.mkdir(parents=True, exist_ok=True)
+        for p in files:
+            p.rename(pages_out_dir / p.name)
+        print(f"Kept all pages → {pages_out_dir}")
+    else:
+        for p in files:
+            p.unlink()
+        files[0].parent.rmdir()
+
+    print(f"Merged {len(files)} files → {merged_path}")
 
 
 async def _main_async(
@@ -183,13 +197,12 @@ async def _main_async(
     concurrency: int,
     api_key: Optional[str],
     min_chars: int,
+    keep_pages: bool,
 ) -> None:
     """Async Orchestrator."""
-    output_dir.mkdir(parents=True, exist_ok=True)
     pages = await _crawl_website(
         url=url,
         instruction=instruction,
-        output_dir=output_dir,
         depth=depth,
         provider=provider,
         concurrency=concurrency,
@@ -201,7 +214,8 @@ async def _main_async(
         return
 
     title = await _generate_title([p.name for p in pages], provider, api_key)
-    await _merge_files(pages, output_dir / "merged" / f"{title}.md")
+
+    await _merge_files(pages, output_dir, f"{title}.md", keep_pages)
 
 
 # ────────────────────────────────────────────────
@@ -216,6 +230,7 @@ def _crawl_command(
     provider: str = "gemini/gemini-2.5-flash-preview-04-17",
     api_key: Optional[str] = None,
     min_chars: int = 1000,
+    keep_pages: bool = False,
 ) -> None:
     """
     Crawl a website (or llms.txt) and emit LLM-ready markdown.
@@ -240,6 +255,7 @@ def _crawl_command(
             concurrency=concurrency,
             api_key=api_key,
             min_chars=min_chars,
+            keep_pages=keep_pages,
         )
     )
 

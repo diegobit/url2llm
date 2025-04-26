@@ -19,10 +19,10 @@ uv run \
    --instruction "I need documents related to developing MCP (model context protocol) servers" \
    --provider "gemini/gemini-2.5-flash-preview-04-17" \
    --api_key ${GEMINI_API_KEY} \
-   --output-dir ~/Desktop/crawl_out/
+   --output-dir ~/Desktop/
 ```
 
-Then drag `~/Desktop/crawl_out/merged/model-context-protocol-documentation.md` into ChatGPT/Claude!
+Then drag `~/Desktop/model-context-protocol-documentation.md` into ChatGPT/Claude!
 
 #### With pip (alternative):
 
@@ -35,8 +35,8 @@ pip install url2llm
 The script uses Crawl4AI:
 
 1. For each url in the crawling, the script produces a markdown
-2. Then it asks the LLM to extract only the content relevant to the given instruction and save all files to disk.
-3. Merge all files into one and save the merged file.
+2. Then it asks the LLM to extract from each page only the content relevant to the given instruction.
+3. Merge all pages into one and save the merged file.
 
 ## Command args and hints
 
@@ -46,6 +46,7 @@ The script uses Crawl4AI:
 - Recommended **depth** (default = `2`):
    - `2` or `1` for normal website
    - `1` for llms.txt
+- If you need the single pages, use `--keep_pages true`
 - You can specify the **concurrency** with `--concurrency` (default = 16)
 - The scripts deletes files **shorter** than `--min_chars` (Default = 1000)
 
