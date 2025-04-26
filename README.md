@@ -4,47 +4,11 @@ I needed a **super simple tool to crawl a website** (or the links in a *llms.txt
 
 I haven't found an easy solution, there is some web based tool with a few free credits, but if you are already paying for some LLM with an api, why pay also someone else?
 
-## What it does
+## Quickstart
 
-The script uses Crawl4AI:
+#### With uv (recommended):
 
-1. For each url in the crawling, the script produces a markdown
-2. Then it asks the LLM to extract only the content relevant to the given instruction and save all files to disk.
-3. Merge all files into one and save the merged file.
-
-## Installation
-
-- `pip install url2llm`
-
-## How to use
-
-### Run script with arguments:
-
-```bash
-url2llm \
-   --url "<URL_OR_LLMS.TXT>" \
-   --depth 2 \
-   --instruction "I need documents related to <GOAL>" \
-   --provider "<PROVIDER>/<MODELNAME>" \
-   --api-key ${GEMINI_API_KEY} \
-   --output-dir "<OUTPUT_DIR>"
-```
-
-- To use **another LLM provider**, just change `--provider` to eg. `openai/gpt-4o`
-   - always set `--api-key`, it is not always inferred correctly fron env vars
-- Provide a **clear goal** to `--instruction`. This will guide the LLM to filter out irrelevant pages.
-- Recommended **depth** (default = `2`):
-   - `2` or `1` for normal website
-   - `1` for llms.txt
-- You can specify the **concurrency** with `--concurrency` (default = 16)
-- The scripts deletes files **shorter** than `--min_chars` (Default = 1000)
-
-> [!CAUTION]
-> If you need to do more complex stuff use Crawl4AI directly and build it yourself: https://docs.crawl4ai.com/
-
-### Example run command
-
-Thanks to uv, I can easily run it from anywhere in my system:
+Thanks to uv, you can easily run it from anywhere without installing anything:
 
 ```bash
 uv run \
@@ -58,26 +22,32 @@ uv run \
    --output-dir ~/Desktop/crawl_out/
 ```
 
-And drag `~/Desktop/crawl_out/merged/model-context-protocol-documentation.md` into ChatGPT/Claude!
+Then drag `~/Desktop/crawl_out/merged/model-context-protocol-documentation.md` into ChatGPT/Claude!
 
-## Develop
-
-## Install locally
+#### With pip (alternative):
 
 ```
-uv pip install .
+pip install url2llm
 ```
 
-## Build
+## What it does
 
-```
-uv pip install --upgrade build
-uv run python -m build
-```
+The script uses Crawl4AI:
 
-## Publish
+1. For each url in the crawling, the script produces a markdown
+2. Then it asks the LLM to extract only the content relevant to the given instruction and save all files to disk.
+3. Merge all files into one and save the merged file.
 
-```
-uv run pip install --upgrade twine
-uv run twine upload dist/*
-```
+## Command args and hints
+
+- To use **another LLM provider**, just change `--provider` to eg. `openai/gpt-4o`
+   - always set `--api-key`, it is not always inferred correctly fron env vars
+- Provide a **clear goal** to `--instruction`. This will guide the LLM to filter out irrelevant pages.
+- Recommended **depth** (default = `2`):
+   - `2` or `1` for normal website
+   - `1` for llms.txt
+- You can specify the **concurrency** with `--concurrency` (default = 16)
+- The scripts deletes files **shorter** than `--min_chars` (Default = 1000)
+
+> [!CAUTION]
+> If you need to do more complex stuff use Crawl4AI directly and build it yourself: https://docs.crawl4ai.com/
