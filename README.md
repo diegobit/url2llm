@@ -1,6 +1,6 @@
 # url2llm
 
-I needed a **super simple tool to crawl a website** (or the links in a *llms.txt*) into formatted markdown files (without headers, navigation etc.) **to add to Claude or ChatGPT project documents**.
+I needed a **super simple tool to crawl a website** (or the links in a *llms.txt*) into a formatted markdown file (without headers, navigation etc.) **to add to Claude or ChatGPT project documents**.
 
 I haven't found an easy solution, there is some web based tool with a few free credits, but if you are already paying for some LLM with an api, why pay also someone else?
 
@@ -14,20 +14,16 @@ The script uses Crawl4AI:
 
 ## Installation
 
-1. Clone the repo, then:
-
-   - **(Recommended, with uv)** – Nothing to do
-
-   - **(Alternative, with pip)** – Install `crawl4ai` and `fire`
+- `pip install url2llm`
 
 ## How to use
 
 ### Run script with arguments:
 
 ```bash
-uv run main.py \
+url2llm \
    --url "<URL_OR_LLMS.TXT>" \
-   --depth 1 \
+   --depth 2 \
    --instruction "I need documents related to <GOAL>" \
    --provider "<PROVIDER>/<MODELNAME>" \
    --api-key ${GEMINI_API_KEY} \
@@ -46,14 +42,15 @@ uv run main.py \
 > [!CAUTION]
 > If you need to do more complex stuff use Crawl4AI directly and build it yourself: https://docs.crawl4ai.com/
 
-### How I use it
+### Example run command
 
 Thanks to uv, I can easily run it from anywhere in my system:
 
 ```bash
-uv \
-   --directory ~/Dev/url2llm/ \
-   run main.py \
+uv run \
+   --with url2llm \
+   url2llm \
+   --depth 1 \
    --url "https://modelcontextprotocol.io/llms.txt" \
    --instruction "I need documents related to developing MCP (model context protocol) servers" \
    --provider "gemini/gemini-2.5-flash-preview-04-17" \
@@ -62,3 +59,25 @@ uv \
 ```
 
 And drag `~/Desktop/crawl_out/merged/model-context-protocol-documentation.md` into ChatGPT/Claude!
+
+## Develop
+
+## Install locally
+
+```
+uv pip install .
+```
+
+## Build
+
+```
+uv pip install --upgrade build
+uv run python -m build
+```
+
+## Publish
+
+```
+uv run pip install --upgrade twine
+uv run twine upload dist/*
+```
