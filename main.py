@@ -244,7 +244,18 @@ def cli(
     api_key: Optional[str] = None,
     min_chars: int = 1000
 ) -> None:
-    """Command-line interface for web crawling and markdown generation."""
+    """
+    Crawl a website (or list of URLs) and export filtered, LLM-ready Markdown files.
+
+    :param url: URL to start crawling, or path to a `llms.txt` containing URLs.
+    :param instruction: LLM filtering instruction (e.g. "extract all API docs").
+    :param output_dir: Directory to write individual Markdown files (expanded `~`).
+    :param depth: How many link-levels to follow (default: 2).
+    :param concurrency: Number of concurrent fetch/filter tasks (default: 16).
+    :param provider: LLM provider/model (e.g. "openai/gpt-4" or "gemini/gemini-2.5-flash-preview-04-17"). Check LiteLLM docs for the full list.
+    :param api_key: Your LLM API key (if not inferred from env).
+    :param min_chars: Minimum characters in a filtered chunk to keep (default: 1000)
+    """
     out_path = Path(output_dir).expanduser()
 
     asyncio.run(main_async(
