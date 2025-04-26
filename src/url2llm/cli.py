@@ -230,7 +230,7 @@ def _crawl_command(
     provider: str = "gemini/gemini-2.5-flash-preview-04-17",
     api_key: Optional[str] = None,
     min_chars: int = 1000,
-    keep_pages: bool = False,
+    keep_pages: bool | str = False,
 ) -> None:
     """
     Crawl a website (or llms.txt) and emit LLM-ready markdown.
@@ -245,6 +245,14 @@ def _crawl_command(
     :param min_chars: Discard filtered chunks shorter than this.
     :param keep_pages: Also keep individual pages, not only merged file
     """
+    if isinstance(keep_pages, str):
+        if keep_pages.lower() == "false":
+            keep_pages = False
+        elif keep_pages.lower() == "true":
+            keep_pages = True
+        else:
+            raise ValueError("--keep_pages must one of: `true`, `False`")
+
     path = Path(output_dir).expanduser()
     asyncio.run(
         _main_async(
