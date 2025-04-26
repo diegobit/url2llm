@@ -4,13 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "url2llm"
-version = "0.3.0"
+version = "0.3.1"
 description = "The easiest way to crawl a website and produce LLM ready markdown files"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.11"
 dependencies = [
-    "crawl4ai>=0.5.0.post8",
+    "crawl4ai<0.7",
     "fire>=0.7.0",
 ]
 
