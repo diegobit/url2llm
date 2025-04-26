@@ -1,4 +1,4 @@
-# website2llm
+# url2llm
 
 I needed a **super simple tool to crawl a website** (or the links in a *llms.txt*) into formatted markdown files (without headers, navigation etc.) **to add to Claude or ChatGPT project documents**.
 
@@ -52,7 +52,7 @@ Thanks to uv, I can easily run it from anywhere in my system:
 
 ```bash
 uv \
-   --directory ~/Dev/website2llm/ \
+   --directory ~/Dev/url2llm/ \
    run main.py \
    --url "https://modelcontextprotocol.io/llms.txt" \
    --instruction "I need documents related to developing MCP (model context protocol) servers" \
