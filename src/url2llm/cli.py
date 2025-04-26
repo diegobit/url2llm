@@ -175,7 +175,7 @@ async def _merge_files(files: List[Path], output_dir: Path, filename: str, keep_
 
     # Move page files or delete
     if keep_pages:
-        pages_out_dir = output_dir / "pages/"
+        pages_out_dir = output_dir / "url2llm_pages/"
         pages_out_dir.mkdir(parents=True, exist_ok=True)
         for p in files:
             p.rename(pages_out_dir / p.name)
@@ -224,7 +224,7 @@ async def _main_async(
 def _crawl_command(
     url: str,
     instruction: str,
-    output_dir: str = "~/Desktop/crawl_out",
+    output_dir: str = ".",
     depth: int = 2,
     concurrency: int = 16,
     provider: str = "gemini/gemini-2.5-flash-preview-04-17",

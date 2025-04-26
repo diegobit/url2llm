@@ -18,11 +18,10 @@ uv run \
    --url "https://modelcontextprotocol.io/llms.txt" \
    --instruction "I need documents related to developing MCP (model context protocol) servers" \
    --provider "gemini/gemini-2.5-flash-preview-04-17" \
-   --api_key ${GEMINI_API_KEY} \
-   --output-dir ~/Desktop/
+   --api_key ${GEMINI_API_KEY}
 ```
 
-Then drag `~/Desktop/model-context-protocol-documentation.md` into ChatGPT/Claude!
+Then drag `./model-context-protocol-documentation.md` into ChatGPT/Claude!
 
 #### With pip (alternative):
 
@@ -46,9 +45,10 @@ The script uses Crawl4AI:
 - Recommended **depth** (default = `2`):
    - `2` or `1` for normal website
    - `1` for llms.txt
-- If you need the single pages, use `--keep_pages true`
-- You can specify the **concurrency** with `--concurrency` (default = 16)
-- The scripts deletes files **shorter** than `--min_chars` (Default = 1000)
+- Provide `--output_dir` to change where files are saved (default = `.`)
+- If you need the single pages, use `--keep_pages True` (default = `False`)
+- You can specify the **concurrency** with `--concurrency` (default = `16`)
+- The scripts deletes files **shorter** than `--min_chars` (default = `1000`)
 
 > [!CAUTION]
 > If you need to do more complex stuff use Crawl4AI directly and build it yourself: https://docs.crawl4ai.com/
