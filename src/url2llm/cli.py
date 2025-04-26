@@ -178,11 +178,17 @@ async def _merge_files(files: List[Path], output_dir: Path, filename: str, keep_
         pages_out_dir = output_dir / "url2llm_pages/"
         pages_out_dir.mkdir(parents=True, exist_ok=True)
         for p in files:
-            p.rename(pages_out_dir / p.name)
-        print(f"Kept all pages → {pages_out_dir}")
+            try:
+                p.rename(pages_out_dir / p.name)
+            except Exception:
+                print(f"Failed to move {p}. Skipping.")
+        print(f"Kept pages → {pages_out_dir}")
     else:
         for p in files:
-            p.unlink()
+            try:
+                p.unlink()
+            except Exception:
+                pass
         files[0].parent.rmdir()
 
     print(f"Merged {len(files)} files → {merged_path}")
