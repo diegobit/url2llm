@@ -11,9 +11,7 @@ I haven't found an easy solution, there is some web based tool with a few free c
 Thanks to uv, you can easily run it from anywhere without installing anything:
 
 ```bash
-uv run \
-   --with url2llm \
-   url2llm \
+uvx url2llm \
    --depth 1 \
    --url "https://modelcontextprotocol.io/llms.txt" \
    --instruction "I need documents related to developing MCP (model context protocol) servers" \
@@ -22,6 +20,9 @@ uv run \
 ```
 
 Then drag `./model-context-protocol-documentation.md` into ChatGPT/Claude!
+
+> [!TIP]
+> You can invoke it with `url2llm` as a properly installed cli tool after running `uv tool install url2llm`.
 
 #### With pip (alternative):
 
