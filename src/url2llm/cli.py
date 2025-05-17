@@ -47,7 +47,7 @@ async def _process_page(
         path = Path("/tmp") / "url2llm_pages" / filename
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(md, encoding="utf-8")
-        print(f"Saved → {path}")
+        print(f"-> Saved -> {path}")
         return path
 
 
@@ -58,7 +58,7 @@ async def _fetch_urls_from_llms_txt(url: str) -> List[str]:
     async with aiohttp.ClientSession() as sess:
         async with sess.get(url) as resp:
             if resp.status != 200:
-                print(f"Failed to fetch llms.txt ({resp.status})")
+                print(f"-> Failed to fetch llms.txt ({resp.status})")
                 return []
             text = await resp.text()
             return re.findall(r"\]\((https?://[^)]+)\)", text)
@@ -78,7 +78,7 @@ async def _generate_title(
     )
 
     try:
-        print(f"Using model → {provider} …")
+        print(f"-> Using model -> {provider} …")
         resp = await litellm.acompletion(
             model=provider,
             messages=[{"role": "user", "content": prompt}],
@@ -88,7 +88,7 @@ async def _generate_title(
         title = resp.choices[0].message.content.strip()
         return _slugify(title) if title and len(title) >= 3 else "merged-content"
     except Exception as exc:  # noqa: BLE001
-        print(f"Title generation failed: {exc}")
+        print(f"-> Title generation failed: {exc}")
         return "merged-content"
 
 
@@ -123,7 +123,7 @@ async def _crawl_website(
         llm_config=llm_cfg,
         instruction=(
             f"{instruction}\n\n# Important rules:\n"
-            "- IF the page is IRRELEVANT → return empty string.\n"
+            "- IF the page is IRRELEVANT -> return empty string.\n"
             "- ELSE omit nav menus, footers, cookie banners; keep headings, code, lists.\n"
             "- Return clean markdown only."
         ),
@@ -181,8 +181,8 @@ async def _merge_files(files: List[Path], output_dir: Path, filename: str, keep_
             try:
                 p.rename(pages_out_dir / p.name)
             except Exception:
-                print(f"Failed to move {p}. Skipping.")
-        print(f"Kept pages → {pages_out_dir}")
+                print(f"-> Failed to move {p}. Skipping.")
+        print(f"-> Kept pages -> {pages_out_dir}")
     else:
         for p in files:
             try:
@@ -191,7 +191,7 @@ async def _merge_files(files: List[Path], output_dir: Path, filename: str, keep_
                 pass
         files[0].parent.rmdir()
 
-    print(f"Merged {len(files)} files → {merged_path}")
+    print(f"-> Merged {len(files)} files -> {merged_path}")
 
 
 async def _main_async(
@@ -216,7 +216,7 @@ async def _main_async(
         min_chars=min_chars,
     )
     if not pages:
-        print("No relevant pages found.")
+        print("-> No relevant pages found.")
         return
 
     title = await _generate_title([p.name for p in pages], provider, api_key)
