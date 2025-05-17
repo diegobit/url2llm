@@ -117,6 +117,7 @@ async def _crawl_website(
     from crawl4ai.content_filter_strategy import LLMContentFilter
     from crawl4ai.deep_crawling import BFSDeepCrawlStrategy
     from crawl4ai.markdown_generation_strategy import DefaultMarkdownGenerator
+    from playwright.async_api import Error as PlaywrightError
 
     llm_cfg = LLMConfig(provider=provider, api_token=api_key)
     llm_filter = LLMContentFilter(
@@ -148,10 +149,24 @@ async def _crawl_website(
     )
 
     results = []
-    async with AsyncWebCrawler(config=BrowserConfig(headless=True)) as crawler:
-        for u in start_urls:
-            print(f"Crawling {u} (depth={depth}) …")
-            results.extend(await crawler.arun(u, config=run_cfg))
+    async def _run_crawler():
+        async with AsyncWebCrawler(config=BrowserConfig(headless=True)) as crawler:
+            for u in start_urls:
+                print(f"-> Crawling {u} (depth={depth}) …")
+                results.extend(await crawler.arun(u, config=run_cfg))
+    try:
+        await _run_crawler()
+    except PlaywrightError as e:
+        # Update playwright
+        print("-> Playwright chromium not updated. Updating now...")
+        import sys
+        import subprocess
+        subprocess.run(
+            [sys.executable, "-m", "playwright", "install", "chromium"],
+            check=True,
+        )
+        print("-> Retrying crawling...")
+        await _run_crawler()
 
     sem = asyncio.Semaphore(concurrency)
     tasks = [_process_page(r, llm_filter, sem, min_chars) for r in results]
