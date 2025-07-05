@@ -117,7 +117,8 @@ async def _crawl_website(
     from crawl4ai.content_filter_strategy import LLMContentFilter
     from crawl4ai.deep_crawling import BFSDeepCrawlStrategy
     from crawl4ai.markdown_generation_strategy import DefaultMarkdownGenerator
-    from playwright.async_api import Error as PlaywrightError
+    from playwright.async_api import Error as PlaywrightAsyncApiError
+    from playwright._impl._errors import Error as PlaywrightImplError
 
     llm_cfg = LLMConfig(provider=provider, api_token=api_key)
     llm_filter = LLMContentFilter(
@@ -156,7 +157,7 @@ async def _crawl_website(
                 results.extend(await crawler.arun(u, config=run_cfg))
     try:
         await _run_crawler()
-    except PlaywrightError as e:
+    except PlaywrightAsyncApiError or PlaywrightImplError as e:
         # Update playwright
         print("-> Playwright chromium not updated. Updating now...")
         import sys
