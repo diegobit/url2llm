@@ -292,6 +292,12 @@ def _crawl_command(
 
 
 def url2llm() -> None:
+    import sys
+    if "--version" in sys.argv:
+        from importlib.metadata import version
+        print(f"{version('url2llm')}")
+        return
+
     import fire
     fire.Fire(_crawl_command)
 
